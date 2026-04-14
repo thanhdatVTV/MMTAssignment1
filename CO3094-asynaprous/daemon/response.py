@@ -248,17 +248,36 @@ class Response():
             }
 
         # Header text alignment
-            #
-            #  TODO: implement the header building to create formated
-            #        header from the provied headers
-            #
-            #
-            # TODO prepare the request authentication
-            #
-            # self.auth = ...
+        #
+        #  TODO: implement the header building to create formated
+        #        header from the provied headers
+        #
+        #
+        # TODO prepare the request authentication
+        #
+        # self.auth = ...
 
+        status_line = "HTTP/1.1 {} {}\r\n".format(self.status_code or 200, self.reason or "OK")
 
-        return str(fmt_header).encode('utf-8')
+        
+        # Add any extra headers set in self.headers
+        for key, value in self.headers.items():
+            if key not in headers:
+                headers[key] = value
+                
+        # Handle cookies
+        if self.cookies:
+            cookie_strs = []
+            for key, value in self.cookies.items():
+                cookie_strs.append("{}={}".format(key, value))
+            headers["Set-Cookie"] = "; ".join(cookie_strs)
+
+        fmt_header = status_line
+        for key, value in headers.items():
+            fmt_header += "{}: {}\r\n".format(key, value)
+        
+        fmt_header += "\r\n"
+        return fmt_header.encode('utf-8')
 
 
     def build_notfound(self):

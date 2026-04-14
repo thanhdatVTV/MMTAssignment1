@@ -106,20 +106,82 @@ class HttpAdapter:
         resp = self.response
 
         # Handle the request
-        msg = conn.recv(1024).decode()
-        req.prepare(msg, routes)
-        print("[HttpAdapter] Invoke handle_client connection {}".format(addr))
+        try:
+            msg = conn.recv(4096).decode("utf-8", errors="ignore")
+            req.prepare(msg, routes)
+            print("[HttpAdapter] Invoke handle_client connection {}".format(addr))
 
-        # Handle request hook
-        if req.hook:
-            #
-            # TODO: handle for App hook here
-            #
-            response = ""
+            # Handle request hook
+            if req.hook:
+                #
+                # TODO: handle for App hook here
+                #
+                try:
+                    result = req.hook(req.headers, req.body)
 
-        #print("[HttpAdapter] Response content {}".format(response))
-        conn.sendall(response)
-        conn.close()
+                    if inspect.iscoroutine(result):
+                        result = asyncio.run(result)
+
+                    status = 200
+                    headers = {}
+                    body = result
+
+                    if isinstance(result, tuple):
+                        if len(result) == 3:
+                            body, status, headers = result
+                        elif len(result) == 2:
+                            body, status = result
+
+                    if isinstance(body, str):
+                        body = body.encode("utf-8")
+                    elif body is None:
+                        body = b""
+
+                    # Setup response object
+                    resp.status_code = status
+                    resp.headers.update(headers)
+                    resp._content = body
+                    
+                    if "Content-Type" not in resp.headers:
+                        resp.headers["Content-Type"] = "application/json"
+
+                    header_bytes = resp.build_response_header(req)
+                    response = header_bytes + body
+
+                except Exception as e:
+                    print("[HttpAdapter] Handler exception: {}".format(e))
+                    body = b'{"error":"server error"}'
+                    resp.status_code = 500
+                    resp.headers["Content-Type"] = "application/json"
+                    resp._content = body
+                    header_bytes = resp.build_response_header(req)
+                    response = header_bytes + body
+            else:
+                body = b'{"error":"not found"}'
+                resp.status_code = 404
+                resp.headers["Content-Type"] = "application/json"
+                resp._content = body
+                header_bytes = resp.build_response_header(req)
+                response = header_bytes + body
+
+            conn.sendall(response)
+
+        except Exception as e:
+            print("[HttpAdapter] Unexpected exception: {}".format(e))
+            fallback = b'{"error":"bad request"}'
+            response = (
+                "HTTP/1.1 400 Bad Request\r\n"
+                "Content-Type: application/json\r\n"
+                f"Content-Length: {len(fallback)}\r\n"
+                "Connection: close\r\n"
+                "\r\n"
+            ).encode("utf-8") + fallback
+            try:
+                conn.sendall(response)
+            except Exception:
+                pass
+        finally:
+            conn.close()
 
     async def handle_client_coroutine(self, reader, writer):
         """

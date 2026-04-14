@@ -25,6 +25,7 @@ import importlib.util
 import json
 
 from   daemon import AsynapRous
+from apps.auth import validate_user, create_session
 
 app = AsynapRous()
 
@@ -39,12 +40,51 @@ def login(headers="guest", body="anonymous"):
     :param headers (str): The request headers or user identifier.
     :param body (str): The request body or login payload.
     """
-    print("[SampleApp] Logging in {} to {}".format(headers, body))
-    data = {"message": "Welcome to the RESTful TCP WebApp"}
+    try:
+        data = json.loads(body)
+        username = data.get("username")
+        password = data.get("password")
 
-    # Convert to JSON string
-    json_str = json.dumps(data)
-    return (json_str.encode("utf-8"))
+        print("[SampleApp] Logging in {} with body {}".format(headers, body))
+
+        if not validate_user(username, password):
+            data = {"error": "Invalid credentials"}
+            return json.dumps(data), 401, {"Content-Type": "application/json"}
+
+        session_id = create_session(username)
+
+        data = {
+            "message": "Login success",
+            "username": username
+        }
+
+        # Return body, status, and headers (Set-Cookie)
+        return json.dumps(data), 200, {
+            "Content-Type": "application/json",
+            "Set-Cookie": "session_id={}; Path=/; HttpOnly".format(session_id)
+        }
+
+    except Exception as e:
+        print("[SampleApp] login exception {}".format(e))
+        data = {"error": "Bad request"}
+        return json.dumps(data), 400, {"Content-Type": "application/json"}
+
+@app.route('/profile', methods=['GET'])
+def profile(headers="guest", body="anonymous"):
+    from apps.auth import get_current_user
+    username = get_current_user(headers)
+    
+    if not username:
+        data = {"error": "Unauthorized"}
+        return json.dumps(data), 401, {"Content-Type": "application/json"}
+    
+    data = {
+        "message": "User profile",
+        "username": username,
+        "role": "Administrator" if username == "admin" else "User"
+    }
+    return json.dumps(data), 200, {"Content-Type": "application/json"}
+
 
 @app.route("/echo", methods=["POST"])
 def echo(headers="guest", body="anonymous"):
