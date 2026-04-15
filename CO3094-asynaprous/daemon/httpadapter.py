@@ -27,6 +27,7 @@ from .dictionary import CaseInsensitiveDict
 import asyncio
 import inspect
 
+
 class HttpAdapter:
     """
     A mutable :class:`HTTP adapter <HTTP adapter>` for managing client connections
@@ -97,7 +98,7 @@ class HttpAdapter:
         """
 
         # Connection handler.
-        self.conn = conn        
+        self.conn = conn
         # Connection address.
         self.connaddr = addr
         # Request handler
@@ -117,7 +118,7 @@ class HttpAdapter:
             #
             response = ""
 
-        #print("[HttpAdapter] Response content {}".format(response))
+        # print("[HttpAdapter] Response content {}".format(response))
         conn.sendall(response)
         conn.close()
 
@@ -133,32 +134,54 @@ class HttpAdapter:
         :param addr (tuple): The client's address.
         :param routes (dict): The route mapping for dispatching requests.
         """
-        # Request handler
+        addr = writer.get_extra_info("peername")
+        print(f"[HttpAdapter] Async handle {addr}")
+
         req = self.request
-        # Response handler
         resp = self.response
 
-        print("[HttpAdapter] Invoke handle_client_coroutine connection {})".format(addr))
-        addr = writer.get_extra_info("peername")
+        try:
+            # 1. READ DATA (non-blocking)
+            data = await reader.read(1024)
+            if not data:
+                return
 
-        # TODO Handle the request asynchronously
-        msg = await reader.read(1024)
+            message = data.decode("utf-8")
 
+            # 2. PARSE REQUEST
+            req.prepare(message, self.routes)
 
-        req.prepare(msg.decode("utf-8"), routes={})
+            if req.headers is None:
+                req.headers = CaseInsensitiveDict()
 
-        # Handle request hook
-        if req.hook:
-            #
-            # TODO: handle for App hook here
-            #
-            response = ""
+            # 3. ROUTE HANDLING
+            if req.hook:
+                handler = req.hook
 
-        # Build response
-        #print("[HttpAdapter] Start **ASYNC** build_response with type {}".format(type(req)))
-        response = resp.build_response(req)
+                # detect async or sync
+                if inspect.iscoroutinefunction(handler):
+                    result = await handler(req.headers, req.body)
+                else:
+                    result = handler(req.headers, req.body)
 
-        # Send all the response asynchronously
+                # 4. BUILD RESPONSE BODY
+                if isinstance(result, dict):
+                    body = str(result).encode()
+                else:
+                    body = str(result).encode()
+
+                resp.status_code = 200
+                response = resp.build_response(req, body)
+
+            else:
+                # 404
+                response = resp.build_notfound()
+
+        except Exception as e:
+            print("[HttpAdapter ERROR]", e)
+            response = resp.build_response(req)
+
+        # 5. SEND RESPONSE (non-blocking)
         writer.write(response)
         await writer.drain()
 
@@ -231,9 +254,8 @@ class HttpAdapter:
 
         return response
 
-
     # def get_connection(self, url, proxies=None):
-        # """Returns a url connection for the given URL. 
+        # """Returns a url connection for the given URL.
 
         # :param url: The URL to connect to.
         # :param proxies: (optional) A Requests-style dictionary of proxies used on this request.
@@ -243,23 +265,22 @@ class HttpAdapter:
         # proxy = select_proxy(url, proxies)
 
         # if proxy:
-            # proxy = prepend_scheme_if_needed(proxy, "http")
-            # proxy_url = parse_url(proxy)
-            # if not proxy_url.host:
-                # raise InvalidProxyURL(
-                    # "Please check proxy URL. It is malformed "
-                    # "and could be missing the host."
-                # )
-            # proxy_manager = self.proxy_manager_for(proxy)
-            # conn = proxy_manager.connection_from_url(url)
+        # proxy = prepend_scheme_if_needed(proxy, "http")
+        # proxy_url = parse_url(proxy)
+        # if not proxy_url.host:
+        # raise InvalidProxyURL(
+        # "Please check proxy URL. It is malformed "
+        # "and could be missing the host."
+        # )
+        # proxy_manager = self.proxy_manager_for(proxy)
+        # conn = proxy_manager.connection_from_url(url)
         # else:
-            # # Only scheme should be lower case
-            # parsed = urlparse(url)
-            # url = parsed.geturl()
-            # conn = self.poolmanager.connection_from_url(url)
+        # # Only scheme should be lower case
+        # parsed = urlparse(url)
+        # url = parsed.geturl()
+        # conn = self.poolmanager.connection_from_url(url)
 
         # return conn
-
 
     def add_headers(self, request):
         """
@@ -268,7 +289,7 @@ class HttpAdapter:
         This method is intended to be overridden by subclasses to inject
         custom headers. It does nothing by default.
 
-        
+
         :param request: :class:`Request <Request>` to add headers to.
         """
         pass
