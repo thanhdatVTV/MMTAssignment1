@@ -1,29 +1,3 @@
-#
-# Copyright (C) 2026 pdnguyen of HCMC University of Technology VNU-HCM.
-# All rights reserved.
-# This file is part of the CO3093/CO3094 course.
-#
-# AsynapRous release
-#
-"""
-apps.chatapp
-~~~~~~~~~~~~~~~~~
-Chat application - Client-Server paradigm.
-
-This module implements the centralized tracker server for the hybrid chat system.
-Responsibilities:
-  - Peer registration (submit-info)
-  - Peer discovery   (get-list)
-  - Channel management (add-list)
-  - Peer connection setup (connect-peer)
-  - Peer broadcast (broadcast-peer)
-  - Direct peer message (send-peer)
-
-Usage:
-    from apps.chatapp import create_chatapp
-    create_chatapp("0.0.0.0", 8001)
-"""
-
 import json
 import threading
 from daemon import AsynapRous
@@ -31,17 +5,13 @@ from apps.auth import validate_user, create_session, get_current_user
 
 app = AsynapRous()
 
-# ──────────────────────────────────────────────
-#  In-memory state (tracker data)
-# ──────────────────────────────────────────────
+
 _lock   = threading.Lock()
-PEERS   = {}   # { username: { "ip": str, "port": int, "online": bool } }
-CHANNELS = {}  # { channel_name: [ username, ... ] }
+PEERS   = {}   
+CHANNELS = {}  
 
 
-# ──────────────────────────────────────────────
 #  Helper
-# ──────────────────────────────────────────────
 def _json_ok(data: dict, status: int = 200):
     return json.dumps(data), status, {"Content-Type": "application/json"}
 
@@ -49,9 +19,6 @@ def _json_err(msg: str, status: int = 400):
     return json.dumps({"error": msg}), status, {"Content-Type": "application/json"}
 
 
-# ──────────────────────────────────────────────
-#  1. POST /login  — reuse auth module
-# ──────────────────────────────────────────────
 @app.route('/login', methods=['POST'])
 def login(headers="guest", body="anonymous"):
     """
@@ -86,9 +53,7 @@ def login(headers="guest", body="anonymous"):
         return _json_err("Bad request", 400)
 
 
-# ──────────────────────────────────────────────
 #  2. POST /submit-info  — peer registration
-# ──────────────────────────────────────────────
 @app.route('/submit-info', methods=['POST'])
 def submit_info(headers="guest", body=""):
     """
@@ -122,9 +87,7 @@ def submit_info(headers="guest", body=""):
         return _json_err("Bad request", 400)
 
 
-# ──────────────────────────────────────────────
 #  3. GET /get-list  — peer discovery
-# ──────────────────────────────────────────────
 @app.route('/get-list', methods=['GET'])
 def get_list(headers="guest", body=""):
     """
@@ -150,9 +113,8 @@ def get_list(headers="guest", body=""):
     return _json_ok({"peers": peer_list})
 
 
-# ──────────────────────────────────────────────
 #  4. POST /add-list  — join / create channel
-# ──────────────────────────────────────────────
+
 @app.route('/add-list', methods=['POST'])
 def add_list(headers="guest", body=""):
     """
@@ -188,9 +150,9 @@ def add_list(headers="guest", body=""):
         return _json_err("Bad request", 400)
 
 
-# ──────────────────────────────────────────────
+
 #  5. GET /channel-list  — list channels
-# ──────────────────────────────────────────────
+
 @app.route('/channel-list', methods=['GET'])
 def channel_list(headers="guest", body=""):
     """
@@ -208,9 +170,9 @@ def channel_list(headers="guest", body=""):
     return _json_ok({"channels": data})
 
 
-# ──────────────────────────────────────────────
+
 #  6. POST /connect-peer  — get info for a specific peer
-# ──────────────────────────────────────────────
+
 @app.route('/connect-peer', methods=['POST'])
 def connect_peer(headers="guest", body=""):
     """
@@ -245,13 +207,11 @@ def connect_peer(headers="guest", body=""):
         return _json_err("Bad request", 400)
 
 
-# ──────────────────────────────────────────────
-#  7. POST /broadcast-peer  — broadcast via tracker
-#     (Client-Server paradigm: server relays message)
-# ──────────────────────────────────────────────
 
-# Simple in-memory message store per channel
-MESSAGES = {}   # { channel: [ { from, text, ts }, ... ] }
+#  7. POST /broadcast-peer  — broadcast via tracker
+
+
+MESSAGES = {}  
 
 @app.route('/broadcast-peer', methods=['POST'])
 def broadcast_peer(headers="guest", body=""):
@@ -292,10 +252,10 @@ def broadcast_peer(headers="guest", body=""):
         return _json_err("Bad request", 400)
 
 
-# ──────────────────────────────────────────────
+
 #  8. POST /send-peer  — direct message (stored at tracker)
-# ──────────────────────────────────────────────
-DM = {}   # { "sender:receiver": [ { from, text, ts }, ... ] }
+
+DM = {}  
 
 @app.route('/send-peer', methods=['POST'])
 def send_peer(headers="guest", body=""):
@@ -336,9 +296,9 @@ def send_peer(headers="guest", body=""):
         return _json_err("Bad request", 400)
 
 
-# ──────────────────────────────────────────────
+
 #  9. GET /messages  — poll messages in a channel
-# ──────────────────────────────────────────────
+
 @app.route('/messages', methods=['GET'])
 def get_messages(headers="guest", body=""):
     """
@@ -375,9 +335,9 @@ def get_messages(headers="guest", body=""):
         return _json_err("Bad request", 400)
 
 
-# ──────────────────────────────────────────────
+
 #  Entry point
-# ──────────────────────────────────────────────
+
 def create_chatapp(ip, port):
     """Launch the chat tracker server."""
     app.prepare_address(ip, port)
