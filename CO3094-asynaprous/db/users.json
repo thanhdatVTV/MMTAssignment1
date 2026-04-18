@@ -1,0 +1,5 @@
+{
+  "alice": { "password": "password123", "role": "admin" },
+  "bob": { "password": "securepass", "role": "user" },
+  "guest": { "password": "guestpass", "role": "user" }
+}

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>P2P Chat Room</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background-color: #f0f2f5;
+        }
+        .header {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header h1 { margin: 0; font-size: 1.2em; }
+        .header button {
+            background: #dc3545; color: white; border: none;
+            padding: 8px 12px; border-radius: 5px; cursor: pointer;
+        }
+        .chat-container {
+            flex-grow: 1; padding: 20px; overflow-y: auto;
+        }
+        #messages {
+            list-style-type: none; padding: 0;
+        }
+        #messages li {
+            padding: 10px 15px; margin-bottom: 10px;
+            border-radius: 18px; max-width: 75%;
+            word-wrap: break-word; line-height: 1.4;
+            background-color: #e4e6eb; color: #050505;
+        }
+        .input-area {
+            display: flex; padding: 10px; background: #fff;
+            border-top: 1px solid #ddd; align-items: center;
+        }
+        #targetSelect {
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            padding: 10px 15px;
+            font-size: 1em;
+            margin-right: 8px;
+            width: 200px;
+            background: white;
+        }
+        #messageInput {
+            flex-grow: 1;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            padding: 10px 15px;
+            font-size: 1em;
+        }
+        #sendButton {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            margin-left: 10px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        #sendButton:hover { background-color: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Chat Room</h1>
+        <form action="/logout" method="post"><button type="submit">Đăng xuất</button></form>
+    </div>
+
+    <div class="chat-container">
+        <ul id="messages"></ul>
+    </div>
+
+    <div class="input-area">
+        <!-- Danh sách người nhận (dropdown) -->
+        <select id="targetSelect">
+            <option value="">-- Gửi broadcast (mọi người) --</option>
+        </select>
+
+        <input type="text" id="messageInput" placeholder="Nhập tin nhắn..." autocomplete="off">
+        <button id="sendButton" type="button">Gửi</button>
+    </div>
+
+    <script>
+        const messagesList = document.getElementById('messages');
+        const targetSelect = document.getElementById('targetSelect');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+
+        // --- Hàm lấy danh sách tin nhắn ---
+        async function getMessages() {
+            try {
+                const response = await fetch('/get-messages', { credentials: 'include' });
+                if (!response.ok) return;
+                const data = await response.json();
+                const newMessages = data.messages || [];
+
+                if (newMessages.length !== messagesList.children.length) {
+                    messagesList.innerHTML = '';
+                    newMessages.forEach(msg => {
+                        const item = document.createElement('li');
+                        item.textContent = msg;
+                        messagesList.appendChild(item);
+                    });
+                    messagesList.parentElement.scrollTop = messagesList.parentElement.scrollHeight;
+                }
+            } catch (error) {
+                console.error("Lỗi khi lấy tin nhắn:", error);
+            }
+        }
+
+        // --- Hàm gửi tin nhắn ---
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            const target = targetSelect.value;
+            if (!message) return;
+
+            const endpoint = target ? '/send-direct' : '/broadcast';
+            const payload = target ? { to: target, message } : { message };
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    console.error("Gửi tin nhắn thất bại:", response.status);
+                    return;
+                }
+
+                messageInput.value = '';
+                messageInput.focus();
+                getMessages();
+            } catch (error) {
+                console.error("Lỗi khi gửi tin nhắn:", error);
+            }
+        }
+
+        // --- Hàm tải danh sách peer đang online ---
+        async function loadPeers() {
+            try {
+                const response = await fetch('http://127.0.0.1:8000/get-list');
+                if (!response.ok) return;
+                const data = await response.json();
+                const peers = data.peers || [];
+
+                // Xóa cũ, thêm lại
+                targetSelect.innerHTML = '<option value="">-- Gửi broadcast (mọi người) --</option>';
+                peers.forEach(peer => {
+                    const opt = document.createElement('option');
+                    opt.value = peer.username;
+                    opt.textContent = `${peer.username} (${peer.ip}:${peer.port})`;
+                    targetSelect.appendChild(opt);
+                });
+            } catch (error) {
+                console.error("Lỗi khi tải danh sách peer:", error);
+            }
+        }
+
+        // --- Sự kiện cho nút gửi và phím Enter ---
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') sendMessage();
+        });
+
+        // --- Cập nhật định kỳ ---
+        setInterval(getMessages, 2000);
+        setInterval(loadPeers, 5000); // Cập nhật danh sách online mỗi 5 giây
+
+        // --- Khởi chạy ---
+        getMessages();
+        loadPeers();
+    </script>
+</body>
+</html>
