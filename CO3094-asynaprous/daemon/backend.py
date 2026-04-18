@@ -109,9 +109,8 @@ async def handle_client_coroutine(reader, writer, routes):
     daemon = HttpAdapter(None, None, None, addr, routes)
 
     # Handle client in asynchronous mode
-    while True:
-        daemon = HttpAdapter(None, None, None, None, None)
-        await daemon.handle_client_coroutine(reader, writer)
+    await daemon.handle_client_coroutine(reader, writer)
+
 
     # close connection
     writer.close()

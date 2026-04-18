@@ -88,35 +88,34 @@ def resolve_routing_policy(hostname, routes):
     :params routes (dict): dictionary mapping hostnames and location.
     """
 
-    print(hostname)
-    proxy_map, policy = routes.get(hostname,('127.0.0.1:9000','round-robin'))
-    print(proxy_map)
-    print(policy)
+    print(f"[Proxy] Resolving hostname: {hostname}")
+    # Default fallback if hostname not in routes
+    proxy_map, policy = routes.get(hostname, ('127.0.0.1:9000', 'round-robin'))
+    
+    print(f"[Proxy] Policy: {policy}, Map: {proxy_map}")
 
-    proxy_host = ''
+    proxy_host = '127.0.0.1'
     proxy_port = '9000'
+    
     if isinstance(proxy_map, list):
         if len(proxy_map) == 0:
-            print("[Proxy] Emtpy resolved routing of hostname {}".format(hostname))
-            print("Empty proxy_map result")
-            # TODO: implement the error handling for non mapped host
-            #       the policy is design by team, but it can be 
-            #       basic default host in your self-defined system
-            # Use a dummy host to raise an invalid connection
-            proxy_host = '127.0.0.1'
-            proxy_port = '9000'
-        elif len(value) == 1:
-            proxy_host, proxy_port = proxy_map[0].split(":", 2)
-        #elif: # apply the policy handling 
-        #   proxy_map
-        #   policy
+            print("[Proxy] Empty resolved routing for hostname {}".format(hostname))
+        elif len(proxy_map) == 1:
+            # Fixed: changed 'value' to 'proxy_map'
+            parts = proxy_map[0].split(":")
+            proxy_host = parts[0]
+            proxy_port = parts[1] if len(parts) > 1 else '80'
         else:
-            # Out-of-handle mapped host
-            proxy_host = '127.0.0.1'
-            proxy_port = '9000'
+            # Round-robin or other policy could be implemented here
+            # For now, default to the first one
+            parts = proxy_map[0].split(":")
+            proxy_host = parts[0]
+            proxy_port = parts[1] if len(parts) > 1 else '80'
     else:
-        print("[Proxy] resolve route of hostname {} is a singulair to".format(hostname))
-        proxy_host, proxy_port = proxy_map.split(":", 2)
+        # Singularity case (string)
+        parts = proxy_map.split(":")
+        proxy_host = parts[0]
+        proxy_port = parts[1] if len(parts) > 1 else '80'
 
     return proxy_host, proxy_port
 
@@ -139,37 +138,48 @@ def handle_client(ip, port, conn, addr, routes):
     :params routes (dict): dictionary mapping hostnames and location.
     """
 
-    request = conn.recv(1024).decode()
-
-    # Extract hostname
-    for line in request.splitlines():
-        if line.lower().startswith('host:'):
-            hostname = line.split(':', 1)[1].strip()
-
-    print("[Proxy] {} at Host: {}".format(addr, hostname))
-
-    # Resolve the matching destination in routes and need conver port
-    # to integer value
-    resolved_host, resolved_port = resolve_routing_policy(hostname, routes)
     try:
-        resolved_port = int(resolved_port)
-    except ValueError:
-        print("Not a valid integer")
+        data = conn.recv(4096)
+        if not data:
+            conn.close()
+            return
+        
+        request = data.decode("utf-8", errors="ignore")
 
-    if resolved_host:
-        print("[Proxy] Host name {} is forwarded to {}:{}".format(hostname,resolved_host, resolved_port))
-        response = forward_request(resolved_host, resolved_port, request)        
-    else:
-        response = (
-            "HTTP/1.1 404 Not Found\r\n"
-            "Content-Type: text/plain\r\n"
-            "Content-Length: 13\r\n"
-            "Connection: close\r\n"
-            "\r\n"
-            "404 Not Found"
-        ).encode('utf-8')
-    conn.sendall(response)
-    conn.close()
+        # Extract hostname
+        hostname = ''
+        for line in request.splitlines():
+            if line.lower().startswith('host:'):
+                hostname = line.split(':', 1)[1].strip()
+                break
+
+        print("[Proxy] {} at Host: {}".format(addr, hostname))
+
+        # Resolve the matching destination in routes and need conver port
+        # to integer value
+        resolved_host, resolved_port = resolve_routing_policy(hostname, routes)
+        try:
+            resolved_port = int(resolved_port)
+        except ValueError:
+            print("Not a valid integer")
+
+        if resolved_host:
+            print("[Proxy] Host name {} is forwarded to {}:{}".format(hostname,resolved_host, resolved_port))
+            response = forward_request(resolved_host, resolved_port, request)        
+        else:
+            response = (
+                "HTTP/1.1 404 Not Found\r\n"
+                "Content-Type: text/plain\r\n"
+                "Content-Length: 13\r\n"
+                "Connection: close\r\n"
+                "\r\n"
+                "404 Not Found"
+            ).encode('utf-8')
+        conn.sendall(response)
+    except Exception as e:
+        print("[Proxy ERROR] Error handling client {}: {}".format(addr, e))
+    finally:
+        conn.close()
 
 def run_proxy(ip, port, routes):
     """
@@ -194,11 +204,24 @@ def run_proxy(ip, port, routes):
         print("[Proxy] Listening on IP {} port {}".format(ip,port))
         while True:
             conn, addr = proxy.accept()
+            print(f"[Proxy] Accepted connection from {addr}")
+            
             #
-            #  TODO: implement the step of the client incomping connection
-            #        using multi-thread programming with the
+            #  TODO: implement the step of the client incoming connection
+            #        using non-blocking communication
+            #          + multi-thread
+            #          + callback
+            #          + coroutine
             #        provided handle_client routine
             #
+
+            # Start a new thread for each client
+            client_thread = threading.Thread(
+                target=handle_client,
+                args=(ip, port, conn, addr, routes),
+                daemon=True
+            )
+            client_thread.start()
     except socket.error as e:
       print("Socket error: {}".format(e))
 

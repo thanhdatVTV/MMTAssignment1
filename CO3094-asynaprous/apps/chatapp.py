@@ -20,6 +20,19 @@ def _json_err(msg: str, status: int = 400):
     return json.dumps({"error": msg}), status, {"Content-Type": "application/json"}
 
 
+@app.route('/login', methods=['GET'])
+def login_get(headers="guest", body="anonymous"):
+    """
+    Serve the chat.html page for the login route.
+    """
+    try:
+        with open("www/chat.html", "rb") as f:
+            content = f.read()
+        return content, 200, {"Content-Type": "text/html"}
+    except Exception as e:
+        print("[ChatApp] Error serving chat.html: {}".format(e))
+        return "Login page not found", 404, {"Content-Type": "text/plain"}
+
 @app.route('/login', methods=['POST'])
 def login(headers="guest", body="anonymous"):
     """

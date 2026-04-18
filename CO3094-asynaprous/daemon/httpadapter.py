@@ -226,14 +226,34 @@ class HttpAdapter:
                 else:
                     result = handler(req.headers, req.body)
 
-                # 4. BUILD RESPONSE BODY
-                if isinstance(result, dict):
-                    body = str(result).encode()
-                else:
-                    body = str(result).encode()
+                # 4. BUILD RESPONSE
+                status = 200
+                headers = {}
+                body = result
 
-                resp.status_code = 200
-                response = resp.build_response(req, body)
+                if isinstance(result, tuple):
+                    if len(result) == 3:
+                        body, status, headers = result
+                    elif len(result) == 2:
+                        body, status = result
+
+                if isinstance(body, str):
+                    body = body.encode("utf-8")
+                elif body is None:
+                    body = b""
+                elif not isinstance(body, bytes):
+                    body = str(body).encode("utf-8")
+
+                # Setup response object
+                resp.status_code = status
+                resp.headers.update(headers)
+                resp._content = body
+                
+                if "Content-Type" not in resp.headers:
+                    resp.headers["Content-Type"] = "application/json"
+
+                header_bytes = resp.build_response_header(req)
+                response = header_bytes + body
 
             else:
                 # 404
@@ -241,7 +261,10 @@ class HttpAdapter:
 
         except Exception as e:
             print("[HttpAdapter ERROR]", e)
-            response = resp.build_response(req)
+            import traceback
+            traceback.print_exc()
+            response = resp.build_notfound() # Fallback
+
 
         # 5. SEND RESPONSE (non-blocking)
         writer.write(response)

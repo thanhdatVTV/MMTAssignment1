@@ -383,7 +383,7 @@
 // ─────────────────────────────────────────────
 //  CONFIG  —  change SERVER to your tracker IP
 // ─────────────────────────────────────────────
-const SERVER   = 'http://' + location.hostname + ':8001';
+const SERVER   = 'http://' + location.hostname + ':' + location.port;
 let   ME       = null;   // logged-in username
 let   CHANNEL  = null;   // current channel
 let   CHANNELS = {};     // { name: [members] }

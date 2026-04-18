@@ -29,6 +29,20 @@ from apps.auth import validate_user, create_session
 
 app = AsynapRous()
 
+@app.route('/login', methods=['GET'])
+def login_get(headers="guest", body="anonymous"):
+    """
+    Serve the chat.html page for the login route.
+    """
+    try:
+        # Serve chat.html as requested by the user
+        with open("www/chat.html", "rb") as f:
+            content = f.read()
+        return content, 200, {"Content-Type": "text/html"}
+    except Exception as e:
+        print("[SampleApp] Error serving chat.html: {}".format(e))
+        return "Login page not found", 404, {"Content-Type": "text/plain"}
+
 @app.route('/login', methods=['POST'])
 def login(headers="guest", body="anonymous"):
     """
@@ -84,6 +98,29 @@ def profile(headers="guest", body="anonymous"):
         "role": "Administrator" if username == "admin" else "User"
     }
     return json.dumps(data), 200, {"Content-Type": "application/json"}
+    
+@app.route('/logout', methods=['POST'])
+def logout(headers="guest", body="anonymous"):
+    """
+    Handle user logout via POST request.
+    """
+    from apps.auth import parse_cookie, clear_session
+    
+    # headers is expected to be a dictionary or CaseInsensitiveDict
+    cookie_str = headers.get("cookie", "") if hasattr(headers, "get") else ""
+    cookies = parse_cookie(cookie_str)
+    session_id = cookies.get("session_id")
+    
+    if session_id:
+        clear_session(session_id)
+        print(f"[SampleApp] User logged out, session {session_id} cleared")
+        
+    data = {"message": "Logged out successfully"}
+    return json.dumps(data), 200, {
+        "Content-Type": "application/json",
+        "Set-Cookie": "session_id=; Path=/; HttpOnly; Max-Age=0"
+    }
+
 
 
 @app.route("/echo", methods=["POST"])
