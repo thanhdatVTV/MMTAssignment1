@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChatApp — Client/Server</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #0d0f14;
+    --surface: #151820;
+    --border:  #252a36;
+    --accent:  #4ade80;
+    --accent2: #38bdf8;
+    --danger:  #f87171;
+    --text:    #e2e8f0;
+    --muted:   #64748b;
+    --mono:    'IBM Plex Mono', monospace;
+    --sans:    'IBM Plex Sans', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── LOGIN SCREEN ── */
+  #login-screen {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 24px;
+  }
+  #login-screen h1 {
+    font-family: var(--mono);
+    font-size: 1.6rem;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+  }
+  #login-screen h1 span { color: var(--muted); }
+  .login-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 32px 36px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 320px;
+  }
+  .login-box input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.9rem;
+    padding: 10px 14px;
+    border-radius: 4px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  .login-box input:focus { border-color: var(--accent); }
+  .btn {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 10px 18px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    transition: opacity .15s, transform .1s;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-primary { background: var(--accent); color: #0d0f14; }
+  .btn-primary:hover { opacity: .85; }
+  .btn-secondary {
+    background: transparent;
+    color: var(--accent2);
+    border: 1px solid var(--accent2);
+  }
+  .btn-secondary:hover { background: rgba(56,189,248,.08); }
+  .btn-danger { background: var(--danger); color: #0d0f14; }
+  #login-err { color: var(--danger); font-size: .8rem; font-family: var(--mono); min-height: 16px; }
+
+  /* ── MAIN LAYOUT ── */
+  #app { flex: 1; display: none; flex-direction: column; overflow: hidden; }
+
+  /* top bar */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+  .topbar .logo { font-family: var(--mono); font-size: .95rem; color: var(--accent); }
+  .topbar .user-info { font-size: .8rem; color: var(--muted); font-family: var(--mono); }
+  .topbar .user-info span { color: var(--accent2); }
+
+  /* body */
+  .main {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 220px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+  .sidebar-section {
+    padding: 12px 16px 8px;
+    font-size: .7rem;
+    font-family: var(--mono);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-list { flex: 1; overflow-y: auto; padding: 8px 0; }
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 16px;
+    font-size: .85rem;
+    cursor: pointer;
+    border-radius: 0;
+    transition: background .1s;
+  }
+  .sidebar-item:hover { background: rgba(255,255,255,.04); }
+  .sidebar-item.active { background: rgba(74,222,128,.08); color: var(--accent); }
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+  }
+  .dot.online { background: var(--accent); }
+
+  .sidebar-actions { padding: 10px 12px; border-top: 1px solid var(--border); display: flex; gap: 6px; flex-wrap: wrap; }
+  .sidebar-actions input {
+    flex: 1;
+    min-width: 0;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: .8rem;
+    padding: 6px 10px;
+    border-radius: 4px;
+    outline: none;
+  }
+  .sidebar-actions input:focus { border-color: var(--accent); }
+
+  /* ── CHAT AREA ── */
+  .chat-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .chat-header {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: .9rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .chat-header .ch-name { color: var(--accent); }
+  .chat-header .ch-meta { font-size: .75rem; color: var(--muted); }
+
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .messages::-webkit-scrollbar { width: 4px; }
+  .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .msg {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-width: 72%;
+  }
+  .msg.mine { align-self: flex-end; align-items: flex-end; }
+  .msg.theirs { align-self: flex-start; align-items: flex-start; }
+  .msg-meta { font-size: .7rem; font-family: var(--mono); color: var(--muted); }
+  .msg.mine .msg-meta { color: var(--accent2); }
+  .msg-bubble {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: .875rem;
+    line-height: 1.5;
+    word-break: break-word;
+  }
+  .msg.mine .msg-bubble {
+    background: rgba(74,222,128,.1);
+    border-color: rgba(74,222,128,.25);
+  }
+
+  .system-msg {
+    align-self: center;
+    font-size: .72rem;
+    font-family: var(--mono);
+    color: var(--muted);
+    padding: 4px 12px;
+    background: rgba(255,255,255,.03);
+    border-radius: 20px;
+    border: 1px solid var(--border);
+  }
+
+  /* input bar */
+  .input-bar {
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .input-bar input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: .9rem;
+    padding: 10px 16px;
+    border-radius: 6px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  .input-bar input:focus { border-color: var(--accent); }
+  .input-bar input::placeholder { color: var(--muted); }
+
+  /* ── PEERS PANEL (right) ── */
+  .peers-panel {
+    width: 180px;
+    border-left: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+  .peers-panel .panel-title {
+    padding: 12px 14px 8px;
+    font-size: .7rem;
+    font-family: var(--mono);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .peers-panel .panel-title button {
+    background: none;
+    border: none;
+    color: var(--accent2);
+    font-family: var(--mono);
+    font-size: .65rem;
+    cursor: pointer;
+  }
+  .peer-list { flex: 1; overflow-y: auto; padding: 6px 0; }
+  .peer-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    font-size: .8rem;
+    cursor: pointer;
+  }
+  .peer-item:hover { background: rgba(255,255,255,.04); }
+
+  /* status bar */
+  .statusbar {
+    padding: 4px 20px;
+    font-family: var(--mono);
+    font-size: .7rem;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    gap: 16px;
+  }
+  .statusbar .ok  { color: var(--accent); }
+  .statusbar .err { color: var(--danger); }
+
+  /* scrollbar global */
+  * { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════ LOGIN SCREEN ══════════════ -->
+<div id="login-screen">
+  <h1>chat<span>app</span> / <span>cs-mode</span></h1>
+  <div class="login-box">
+    <input id="inp-user" type="text"     placeholder="username" autocomplete="off">
+    <input id="inp-pass" type="password" placeholder="password">
+    <div id="login-err"></div>
+    <button class="btn btn-primary" onclick="doLogin()">connect →</button>
+  </div>
+</div>
+
+<!-- ══════════════ MAIN APP ══════════════ -->
+<div id="app">
+  <div class="topbar">
+    <span class="logo">chatapp <span style="color:var(--muted)">// client-server</span></span>
+    <span class="user-info">logged in as <span id="lbl-user">—</span></span>
+    <button class="btn btn-danger" style="padding:6px 14px;font-size:.75rem" onclick="doLogout()">logout</button>
+  </div>
+
+  <div class="main">
+    <!-- sidebar: channels -->
+    <div class="sidebar">
+      <div class="sidebar-section">channels</div>
+      <div class="sidebar-list" id="channel-list-ui"></div>
+      <div class="sidebar-actions">
+        <input id="inp-channel" placeholder="new channel…" onkeydown="if(event.key==='Enter')joinChannel()">
+        <button class="btn btn-secondary" style="padding:6px 10px" onclick="joinChannel()">+</button>
+      </div>
+    </div>
+
+    <!-- chat area -->
+    <div class="chat-area">
+      <div class="chat-header">
+        <span class="ch-name" id="lbl-channel"># —</span>
+        <span class="ch-meta" id="lbl-members"></span>
+      </div>
+      <div class="messages" id="messages-ui">
+        <div class="system-msg">select or create a channel to start chatting</div>
+      </div>
+      <div class="input-bar">
+        <input id="inp-msg" placeholder="type a message…" onkeydown="if(event.key==='Enter')sendMsg()">
+        <button class="btn btn-primary" onclick="sendMsg()">send</button>
+      </div>
+    </div>
+
+    <!-- right: peers -->
+    <div class="peers-panel">
+      <div class="panel-title">
+        peers
+        <button onclick="refreshPeers()">↻ refresh</button>
+      </div>
+      <div class="peer-list" id="peer-list-ui"></div>
+    </div>
+  </div>
+
+  <div class="statusbar">
+    <span id="status-txt" class="ok">ready</span>
+    <span id="status-server"></span>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  CONFIG  —  change SERVER to your tracker IP
+// ─────────────────────────────────────────────
+const SERVER   = 'http://' + location.hostname + ':8001';
+let   ME       = null;   // logged-in username
+let   CHANNEL  = null;   // current channel
+let   CHANNELS = {};     // { name: [members] }
+let   pollTimer= null;
+let   lastMsgCount = 0;
+
+// ─────────────────────────────────────────────
+//  UTILS
+// ─────────────────────────────────────────────
+function setStatus(msg, ok=true) {
+  const el = document.getElementById('status-txt');
+  el.textContent = msg;
+  el.className = ok ? 'ok' : 'err';
+}
+
+async function api(method, path, body=null) {
+  const opts = {
+    method,
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(SERVER + path, opts);
+  const data = await r.json();
+  return { ok: r.ok, status: r.status, data };
+}
+
+// ─────────────────────────────────────────────
+//  AUTH
+// ─────────────────────────────────────────────
+async function doLogin() {
+  const user = document.getElementById('inp-user').value.trim();
+  const pass = document.getElementById('inp-pass').value;
+  const errEl = document.getElementById('login-err');
+  errEl.textContent = '';
+
+  if (!user || !pass) { errEl.textContent = 'fill all fields'; return; }
+
+  try {
+    const { ok, data } = await api('POST', '/login', { username: user, password: pass });
+    if (!ok) { errEl.textContent = data.error || 'login failed'; return; }
+
+    ME = user;
+    document.getElementById('lbl-user').textContent = ME;
+
+    // register peer info with tracker
+    await api('POST', '/submit-info', { ip: location.hostname, port: parseInt(location.port)||8001 });
+
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+
+    setStatus('connected to tracker');
+    document.getElementById('status-server').textContent = SERVER;
+
+    await refreshChannels();
+    await refreshPeers();
+    startPolling();
+
+  } catch(e) {
+    errEl.textContent = 'cannot reach server';
+  }
+}
+
+function doLogout() {
+  clearInterval(pollTimer);
+  ME = null; CHANNEL = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('inp-pass').value = '';
+}
+
+// ─────────────────────────────────────────────
+//  CHANNELS
+// ─────────────────────────────────────────────
+async function joinChannel() {
+  const name = document.getElementById('inp-channel').value.trim();
+  if (!name) return;
+  await api('POST', '/add-list', { channel: name });
+  document.getElementById('inp-channel').value = '';
+  await refreshChannels();
+  selectChannel(name);
+}
+
+async function refreshChannels() {
+  const { ok, data } = await api('GET', '/channel-list');
+  if (!ok) return;
+  CHANNELS = data.channels || {};
+  renderChannelList();
+}
+
+function renderChannelList() {
+  const ul = document.getElementById('channel-list-ui');
+  ul.innerHTML = '';
+  for (const ch of Object.keys(CHANNELS)) {
+    const li = document.createElement('div');
+    li.className = 'sidebar-item' + (ch === CHANNEL ? ' active' : '');
+    li.innerHTML = `<span style="color:var(--muted)">#</span> ${ch}`;
+    li.onclick = () => selectChannel(ch);
+    ul.appendChild(li);
+  }
+}
+
+async function selectChannel(name) {
+  CHANNEL = name;
+  lastMsgCount = 0;
+  document.getElementById('lbl-channel').textContent = '# ' + name;
+  const members = CHANNELS[name] || [];
+  document.getElementById('lbl-members').textContent = members.join(', ');
+  renderChannelList();
+  await loadMessages();
+}
+
+// ─────────────────────────────────────────────
+//  MESSAGES
+// ─────────────────────────────────────────────
+async function loadMessages() {
+  if (!CHANNEL) return;
+  const { ok, data } = await api('GET', '/messages', { channel: CHANNEL });
+  if (!ok) return;
+  const msgs = data.messages || [];
+  if (msgs.length !== lastMsgCount) {
+    lastMsgCount = msgs.length;
+    renderMessages(msgs);
+  }
+}
+
+function renderMessages(msgs) {
+  const box = document.getElementById('messages-ui');
+  box.innerHTML = '';
+
+  if (!msgs.length) {
+    box.innerHTML = '<div class="system-msg">no messages yet</div>';
+    return;
+  }
+
+  for (const m of msgs) {
+    const div = document.createElement('div');
+    div.className = 'msg ' + (m.from === ME ? 'mine' : 'theirs');
+    const t = new Date(m.ts * 1000).toLocaleTimeString();
+    div.innerHTML = `
+      <div class="msg-meta">${m.from} · ${t}</div>
+      <div class="msg-bubble">${escHtml(m.text)}</div>
+    `;
+    box.appendChild(div);
+  }
+  box.scrollTop = box.scrollHeight;
+}
+
+async function sendMsg() {
+  const inp = document.getElementById('inp-msg');
+  const text = inp.value.trim();
+  if (!text || !CHANNEL) return;
+  inp.value = '';
+  const { ok } = await api('POST', '/broadcast-peer', { channel: CHANNEL, message: text });
+  if (ok) { setStatus('message sent'); await loadMessages(); }
+  else      setStatus('send failed', false);
+}
+
+// ─────────────────────────────────────────────
+//  PEERS
+// ─────────────────────────────────────────────
+async function refreshPeers() {
+  const { ok, data } = await api('GET', '/get-list');
+  if (!ok) return;
+  const peers = data.peers || {};
+  const ul = document.getElementById('peer-list-ui');
+  ul.innerHTML = '';
+  for (const [u, info] of Object.entries(peers)) {
+    const li = document.createElement('div');
+    li.className = 'peer-item';
+    li.innerHTML = `<span class="dot online"></span><span>${u}</span>`;
+    li.title = `${info.ip}:${info.port}`;
+    ul.appendChild(li);
+  }
+  if (!Object.keys(peers).length) {
+    ul.innerHTML = '<div style="padding:10px 14px;font-size:.75rem;color:var(--muted)">no peers online</div>';
+  }
+}
+
+// ─────────────────────────────────────────────
+//  POLLING  (short-poll every 2s)
+// ─────────────────────────────────────────────
+function startPolling() {
+  pollTimer = setInterval(async () => {
+    await loadMessages();
+    await refreshPeers();
+  }, 2000);
+}
+
+// ─────────────────────────────────────────────
+//  UTIL
+// ─────────────────────────────────────────────
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
