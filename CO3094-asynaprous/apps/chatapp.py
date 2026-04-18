@@ -313,7 +313,7 @@ def send_peer(headers="guest", body=""):
 
 #  9. GET /messages  — poll messages in a channel
 
-@app.route('/messages', methods=['GET'])
+@app.route('/messages', methods=['POST'])
 def get_messages(headers="guest", body=""):
     """
     Fetch all stored messages for a channel.

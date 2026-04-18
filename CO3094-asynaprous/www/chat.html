@@ -501,7 +501,7 @@ async function selectChannel(name) {
 // ─────────────────────────────────────────────
 async function loadMessages() {
   if (!CHANNEL) return;
-  const { ok, data } = await api('GET', '/messages', { channel: CHANNEL });
+  const { ok, data } = await api('POST', '/messages', { channel: CHANNEL });
   if (!ok) return;
   const msgs = data.messages || [];
   if (msgs.length !== lastMsgCount) {
