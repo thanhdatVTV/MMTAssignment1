@@ -108,8 +108,10 @@ async def handle_client_coroutine(reader, writer, routes):
     # create adapter with routes
     daemon = HttpAdapter(None, None, None, addr, routes)
 
-    # handle ONE request (HTTP 1.0 style)
-    await daemon.handle_client_coroutine(reader, writer)
+    # Handle client in asynchronous mode
+    while True:
+        daemon = HttpAdapter(None, None, None, None, None)
+        await daemon.handle_client_coroutine(reader, writer)
 
     # close connection
     writer.close()
@@ -204,9 +206,15 @@ def run_backend(ip, port, routes):
                     callback(key.fileobj, ip, port, conn, addr, routes)
 
             else:
-                # Baseline multi-thread implementation
-                # client_thread = threading.Thread...
-                pass
+               # Baseline multi-thread implementation
+               #client_thread = threading.Thread...
+                client_thread = threading.Thread(
+                    target=handle_client,
+                    args=(ip, port, conn, addr, routes),
+                    daemon=True
+                )
+                client_thread.start()
+
 
     except socket.error as e:
         print("Socket error: {}".format(e))

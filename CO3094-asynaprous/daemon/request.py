@@ -48,6 +48,7 @@ class Request():
         "body",
         "routes",
         "hook",
+        "path",
     ]
 
     def __init__(self):
@@ -118,6 +119,11 @@ class Request():
         #
         # TODO manage the webapp hook in this mounting point
         #
+
+        # Parse headers/body
+        self._raw_headers, self._raw_body = self.fetch_headers_body(request)
+        self.headers = self.prepare_headers(request)
+        self.body = self._raw_body
         
         if not routes == {}:
             self.routes = routes
@@ -129,14 +135,20 @@ class Request():
             # ...
             #
 
-        self._raw_heaers = ""
-        self._raw_body =  ""
-        cookies = self.headers.get('cookie', '')
+        # Parse cookies
+        self.cookies = {}
+        cookie_header = self.headers.get('cookie', '')
             #
             #  TODO: implement the cookie function here
             #        by parsing the header            #
 
-        return
+        if cookie_header:
+            for pair in cookie_header.split(";"):
+                if "=" in pair:
+                    key, value = pair.strip().split("=", 1)
+                    self.cookies[key] = value
+
+        return self
 
     def prepare_body(self, data, files, json=None):
         self.prepare_content_length(self.body)

@@ -1,97 +1,110 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <title>Simple RESTful HTTP form</title>
 
   <script>
     async function sendEcho() {
-      const message = document.getElementById("msg").value;
+      const message = document.getElementById("echo_msg").value;
 
-      // Example: POST request to /echo endpoint
       try {
         const response = await fetch("/echo", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ text: message })
-         });
-
-        if (!response.ok) {
-            throw new Error("HTTP error " + response.status);
-        }
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ text: message })
+        });
 
         const result = await response.text();
-        document.getElementById("response").textContent = "Server replied: " + result;
+        document.getElementById("response").textContent = "Echo: " + result;
       } catch (err) {
-        document.getElementById("response").textContent = "Request failed: " + err.message;
+        document.getElementById("response").textContent = "Echo failed: " + err.message;
       }
     }
 
 
     async function sendLogin() {
-      const message = document.getElementById("msg").value;
+      const user = document.getElementById("username").value;
+      const pass = document.getElementById("password").value;
 
-      // Example: POST request to /login endpoint
       try {
         const response = await fetch("/login", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ text: message })
-         });
-
-        if (!response.ok) {
-            throw new Error("HTTP error " + response.status);
-        }
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            username: user,
+            password: pass
+          })
+        });
 
         const result = await response.text();
-        document.getElementById("response").textContent = "Server replied: " + result;
+        document.getElementById("response").textContent = "Login: " + result;
       } catch (err) {
-        document.getElementById("response").textContent = "Request failed: " + err.message;
+        document.getElementById("response").textContent = "Login failed: " + err.message;
+      }
+    }
+
+    async function checkProfile() {
+      try {
+        const response = await fetch("/profile", {
+          method: "GET"
+        });
+
+        const result = await response.text();
+        document.getElementById("response").textContent = "Profile: " + result;
+      } catch (err) {
+        document.getElementById("response").textContent = "Profile check failed: " + err.message;
       }
     }
 
     async function sendHello() {
-      const message = document.getElementById("msg").value;
-
-      // Example: PUT request to /hello endpoint
       try {
         const response = await fetch("/hello", {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ text: message })
-         });
-
-        if (!response.ok) {
-            throw new Error("HTTP error " + response.status);
-        }
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ text: "Hi from client" })
+        });
 
         const result = await response.text();
-        document.getElementById("response").textContent = "Server replied: " + result;
+        document.getElementById("response").textContent = "Hello: " + result;
       } catch (err) {
-        document.getElementById("response").textContent = "Request failed: " + err.message;
+        document.getElementById("response").textContent = "Hello failed: " + err.message;
       }
     }
-   </script>
+  </script>
 
 </head>
+
 <body>
-  <h2>Send Message to Server</h2>
+  <h2>AsynapRous Authentication Demo</h2>
 
-  <!-- Input field -->
-  <label for="msg">Message:</label>
-  <input type="text" id="msg">
-  <button onclick="sendEcho()">Send Echo</button>
-  <button onclick="sendLogin()">Send Login</button>
-  <button onclick="sendHello()">Send Hello</button>
+  <div style="border: 1px solid #ccc; padding: 10px; margin-bottom: 10px;">
+    <h3>Login</h3>
+    <label>User: <input type="text" id="username" value="admin"></label><br>
+    <label>Pass: <input type="password" id="password" value="123"></label><br>
+    <button onclick="sendLogin()">Login</button>
+    <button onclick="checkProfile()">Check Profile</button>
+  </div>
 
-  <!-- Output area -->
-  <label for="output">Server output:</label>
-  <p id="response"></p>
+  <div style="border: 1px solid #ccc; padding: 10px;">
+    <h3>Other Tests</h3>
+    <label>Echo: <input type="text" id="echo_msg" value="Hello World"></label>
+    <button onclick="sendEcho()">Send Echo</button>
+    <button onclick="sendHello()">Send PUT Hello</button>
+  </div>
+
+  <div style="margin-top: 20px;">
+    <strong>Server output:</strong>
+    <pre id="response" style="background: #f4f4f4; padding: 10px; border: 1px solid #ddd;"></pre>
+  </div>
 </body>
+
+
 </html>
