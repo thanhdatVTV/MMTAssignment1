@@ -2,7 +2,7 @@
 import argparse
 from apps.chatapp import create_chatapp
 
-PORT = 8001
+PORT = 8005
 
 parser = argparse.ArgumentParser(prog='ChatApp', description='Chat Tracker Server')
 parser.add_argument('--server-ip',   default='0.0.0.0')

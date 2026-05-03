@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ChatApp — Client/Server</title>
+<title>ChatApp — P2P WebRTC</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap');
 
@@ -31,7 +31,6 @@
     flex-direction: column;
   }
 
-  /* ── LOGIN SCREEN ── */
   #login-screen {
     flex: 1;
     display: flex;
@@ -55,7 +54,7 @@
     display: flex;
     flex-direction: column;
     gap: 14px;
-    width: 320px;
+    width: 340px;
   }
   .login-box input {
     background: var(--bg);
@@ -90,11 +89,10 @@
   .btn-secondary:hover { background: rgba(56,189,248,.08); }
   .btn-danger { background: var(--danger); color: #0d0f14; }
   #login-err { color: var(--danger); font-size: .8rem; font-family: var(--mono); min-height: 16px; }
+  .hint { color: var(--muted); font-size: .75rem; line-height: 1.5; }
 
-  /* ── MAIN LAYOUT ── */
   #app { flex: 1; display: none; flex-direction: column; overflow: hidden; }
 
-  /* top bar */
   .topbar {
     display: flex;
     align-items: center;
@@ -108,14 +106,12 @@
   .topbar .user-info { font-size: .8rem; color: var(--muted); font-family: var(--mono); }
   .topbar .user-info span { color: var(--accent2); }
 
-  /* body */
   .main {
     flex: 1;
     display: flex;
     overflow: hidden;
   }
 
-  /* ── SIDEBAR ── */
   .sidebar {
     width: 220px;
     border-right: 1px solid var(--border);
@@ -141,35 +137,11 @@
     padding: 7px 16px;
     font-size: .85rem;
     cursor: pointer;
-    border-radius: 0;
     transition: background .1s;
   }
   .sidebar-item:hover { background: rgba(255,255,255,.04); }
   .sidebar-item.active { background: rgba(74,222,128,.08); color: var(--accent); }
-  .dot {
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    background: var(--muted);
-    flex-shrink: 0;
-  }
-  .dot.online { background: var(--accent); }
 
-  .sidebar-actions { padding: 10px 12px; border-top: 1px solid var(--border); display: flex; gap: 6px; flex-wrap: wrap; }
-  .sidebar-actions input {
-    flex: 1;
-    min-width: 0;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    color: var(--text);
-    font-family: var(--mono);
-    font-size: .8rem;
-    padding: 6px 10px;
-    border-radius: 4px;
-    outline: none;
-  }
-  .sidebar-actions input:focus { border-color: var(--accent); }
-
-  /* ── CHAT AREA ── */
   .chat-area {
     flex: 1;
     display: flex;
@@ -235,7 +207,6 @@
     border: 1px solid var(--border);
   }
 
-  /* input bar */
   .input-bar {
     padding: 12px 20px;
     border-top: 1px solid var(--border);
@@ -258,9 +229,8 @@
   .input-bar input:focus { border-color: var(--accent); }
   .input-bar input::placeholder { color: var(--muted); }
 
-  /* ── PEERS PANEL (right) ── */
   .peers-panel {
-    width: 180px;
+    width: 220px;
     border-left: 1px solid var(--border);
     background: var(--surface);
     display: flex;
@@ -291,14 +261,24 @@
   .peer-item {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 8px;
     padding: 7px 14px;
     font-size: .8rem;
     cursor: pointer;
   }
   .peer-item:hover { background: rgba(255,255,255,.04); }
+  .peer-main { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .peer-state { font-size: .7rem; color: var(--muted); }
 
-  /* status bar */
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+  }
+  .dot.online { background: var(--accent); }
+
   .statusbar {
     padding: 4px 20px;
     font-family: var(--mono);
@@ -312,50 +292,48 @@
   .statusbar .ok  { color: var(--accent); }
   .statusbar .err { color: var(--danger); }
 
-  /* scrollbar global */
   * { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 </style>
 </head>
 <body>
-
-<!-- ══════════════ LOGIN SCREEN ══════════════ -->
 <div id="login-screen">
-  <h1>chat<span>app</span> / <span>cs-mode</span></h1>
+  <h1>chat<span>app</span> / <span>p2p-webrtc</span></h1>
   <div class="login-box">
-    <input id="inp-user" type="text"     placeholder="username" autocomplete="off">
+    <input id="inp-user" type="text" placeholder="username" autocomplete="off">
     <input id="inp-pass" type="password" placeholder="password">
     <div id="login-err"></div>
     <button class="btn btn-primary" onclick="doLogin()">connect →</button>
+    <div class="hint">
+      Open this page from each <code>peer.py</code> instance.<br>
+      Example: user1 at <code>http://127.0.0.1:9001/login</code>, user2 at <code>http://127.0.0.1:9002/login</code>.
+    </div>
   </div>
 </div>
 
-<!-- ══════════════ MAIN APP ══════════════ -->
 <div id="app">
   <div class="topbar">
-    <span class="logo">chatapp <span style="color:var(--muted)">// client-server</span></span>
+    <span class="logo">chatapp <span style="color:var(--muted)">// p2p webrtc</span></span>
     <span class="user-info">logged in as <span id="lbl-user">—</span></span>
     <button class="btn btn-danger" style="padding:6px 14px;font-size:.75rem" onclick="doLogout()">logout</button>
   </div>
 
   <div class="main">
-    <!-- sidebar: channels -->
     <div class="sidebar">
-      <div class="sidebar-section">channels</div>
-      <div class="sidebar-list" id="channel-list-ui"></div>
-      <div class="sidebar-actions">
-        <input id="inp-channel" placeholder="new channel…" onkeydown="if(event.key==='Enter')joinChannel()">
-        <button class="btn btn-secondary" style="padding:6px 10px" onclick="joinChannel()">+</button>
+      <div class="sidebar-section" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <span>direct chats</span>
+        <button class="btn btn-secondary" onclick="createChannelPrompt()" style="padding:5px 8px;font-size:.62rem">+ channel</button>
       </div>
+      <div class="sidebar-list" id="chat-list-ui"></div>
+      <div id="channel-list-ui" style="display:none"></div>
     </div>
 
-    <!-- chat area -->
     <div class="chat-area">
       <div class="chat-header">
-        <span class="ch-name" id="lbl-channel"># —</span>
-        <span class="ch-meta" id="lbl-members"></span>
+        <span class="ch-name" id="lbl-peer">@ —</span>
+        <span class="ch-meta" id="lbl-peer-state">select a peer</span>
       </div>
       <div class="messages" id="messages-ui">
-        <div class="system-msg">select or create a channel to start chatting</div>
+        <div class="system-msg">select a peer or join a channel to start chatting</div>
       </div>
       <div class="input-bar">
         <input id="inp-msg" placeholder="type a message…" onkeydown="if(event.key==='Enter')sendMsg()">
@@ -363,10 +341,9 @@
       </div>
     </div>
 
-    <!-- right: peers -->
     <div class="peers-panel">
       <div class="panel-title">
-        peers
+        online peers
         <button onclick="refreshPeers()">↻ refresh</button>
       </div>
       <div class="peer-list" id="peer-list-ui"></div>
@@ -380,151 +357,182 @@
 </div>
 
 <script>
-// ─────────────────────────────────────────────
-//  CONFIG  —  change SERVER to your tracker IP
-// ─────────────────────────────────────────────
-const SERVER   = 'http://' + location.hostname + ':' + location.port;
-let   ME       = null;   // logged-in username
-let   CHANNEL  = null;   // current channel
-let   CHANNELS = {};     // { name: [members] }
-let   pollTimer= null;
-let   lastMsgCount = 0;
+const SERVER = window.location.origin;
+let ME = null;
+let CURRENT_PEER = null;
+let CURRENT_CHANNEL = null;
+let CURRENT_MODE = 'direct'; // direct | channel
+let POLL_TIMER = null;
 
-// ─────────────────────────────────────────────
-//  UTILS
-// ─────────────────────────────────────────────
-function setStatus(msg, ok=true) {
+const peerConnections = {};
+const dataChannels = {};
+const conversations = {};
+const channelConversations = {};
+const channelKnownKeys = {};
+let CHANNELS = {};
+
+const rtcConfig = {
+  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+};
+
+function setStatus(msg, ok = true) {
   const el = document.getElementById('status-txt');
   el.textContent = msg;
   el.className = ok ? 'ok' : 'err';
 }
 
-async function api(method, path, body=null) {
+async function api(method, path, body = null) {
   const opts = {
     method,
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json' }
   };
   if (body) opts.body = JSON.stringify(body);
+
   const r = await fetch(SERVER + path, opts);
-  const data = await r.json();
+  const text = await r.text();
+  let data = {};
+  try { data = text ? JSON.parse(text) : {}; } catch (_) {}
   return { ok: r.ok, status: r.status, data };
 }
 
-// ─────────────────────────────────────────────
-//  AUTH
-// ─────────────────────────────────────────────
-async function doLogin() {
-  const user = document.getElementById('inp-user').value.trim();
-  const pass = document.getElementById('inp-pass').value;
-  const errEl = document.getElementById('login-err');
-  errEl.textContent = '';
-
-  if (!user || !pass) { errEl.textContent = 'fill all fields'; return; }
-
-  try {
-    const { ok, data } = await api('POST', '/login', { username: user, password: pass });
-    if (!ok) { errEl.textContent = data.error || 'login failed'; return; }
-
-    ME = user;
-    document.getElementById('lbl-user').textContent = ME;
-
-    // register peer info with tracker
-    await api('POST', '/submit-info', { ip: location.hostname, port: parseInt(location.port)||8001 });
-
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('app').style.display = 'flex';
-
-    setStatus('connected to tracker');
-    document.getElementById('status-server').textContent = SERVER;
-
-    await refreshChannels();
-    await refreshPeers();
-    startPolling();
-
-  } catch(e) {
-    errEl.textContent = 'cannot reach server';
-  }
+function escHtml(s = '') {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
-function doLogout() {
-  clearInterval(pollTimer);
-  ME = null; CHANNEL = null;
-  document.getElementById('app').style.display = 'none';
-  document.getElementById('login-screen').style.display = 'flex';
-  document.getElementById('inp-pass').value = '';
+function ensureConversation(peer) {
+  if (!conversations[peer]) conversations[peer] = [];
 }
 
-// ─────────────────────────────────────────────
-//  CHANNELS
-// ─────────────────────────────────────────────
-async function joinChannel() {
-  const name = document.getElementById('inp-channel').value.trim();
-  if (!name) return;
-  await api('POST', '/add-list', { channel: name });
-  document.getElementById('inp-channel').value = '';
-  await refreshChannels();
-  selectChannel(name);
+function ensureChannel(channel) {
+  if (!channelConversations[channel]) channelConversations[channel] = [];
+  if (!channelKnownKeys[channel]) channelKnownKeys[channel] = new Set();
 }
 
-async function refreshChannels() {
-  const { ok, data } = await api('GET', '/channel-list');
-  if (!ok) return;
-  CHANNELS = data.channels || {};
+function addMessage(peer, from, text, mine = false) {
+  ensureConversation(peer);
+  conversations[peer].push({ from, text, mine, ts: Date.now() });
+  renderChatList();
+  if (CURRENT_MODE === 'direct' && CURRENT_PEER === peer) renderMessages(peer);
+}
+
+function addChannelMessage(channel, from, text, ts = Date.now()) {
+  ensureChannel(channel);
+  const key = `${from}|${text}|${ts}`;
+  if (channelKnownKeys[channel].has(key)) return;
+  channelKnownKeys[channel].add(key);
+  channelConversations[channel].push({ from, text, mine: from === ME, ts: ts * 1000 || Date.now() });
   renderChannelList();
+  if (CURRENT_MODE === 'channel' && CURRENT_CHANNEL === channel) renderChannelMessages(channel);
+}
+
+function renderChatList() {
+  const box = document.getElementById('chat-list-ui');
+  box.innerHTML = '';
+
+  const channels = Object.keys(CHANNELS).sort();
+  const peers = Object.keys(conversations).filter(x => !CHANNELS[x]).sort();
+
+  if (!channels.length && !peers.length) {
+    box.innerHTML = '<div style="padding:10px 16px;color:var(--muted);font-size:.8rem;line-height:1.45">no chats yet<br><span style="font-size:.72rem">click <b>+ channel</b> to create a room</span></div>';
+    return;
+  }
+
+  if (channels.length) {
+    const title = document.createElement('div');
+    title.style.cssText = 'padding:8px 16px 5px;color:var(--muted);font-size:.68rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:.7px';
+    title.textContent = 'channels';
+    box.appendChild(title);
+  }
+
+  for (const ch of channels) {
+    const members = CHANNELS[ch] || [];
+    const row = document.createElement('div');
+    row.className = 'sidebar-item' + (CURRENT_MODE === 'channel' && ch === CURRENT_CHANNEL ? ' active' : '');
+    row.innerHTML = `
+      <span style="color:var(--accent)">#</span>
+      <span style="flex:1">${escHtml(ch)}</span>
+      <span style="color:var(--muted);font-size:.68rem">${members.length}</span>
+    `;
+    row.onclick = () => joinChannelByName(ch, true);
+    box.appendChild(row);
+  }
+
+  if (peers.length) {
+    const title = document.createElement('div');
+    title.style.cssText = 'padding:10px 16px 5px;color:var(--muted);font-size:.68rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:.7px';
+    title.textContent = 'direct';
+    box.appendChild(title);
+  }
+
+  for (const peer of peers) {
+    const row = document.createElement('div');
+    row.className = 'sidebar-item' + (CURRENT_MODE === 'direct' && peer === CURRENT_PEER ? ' active' : '');
+    row.innerHTML = `<span style="color:var(--accent2)">@</span> <span>${escHtml(peer)}</span>`;
+    row.onclick = () => selectPeer(peer);
+    box.appendChild(row);
+  }
 }
 
 function renderChannelList() {
-  const ul = document.getElementById('channel-list-ui');
-  ul.innerHTML = '';
-  for (const ch of Object.keys(CHANNELS)) {
-    const li = document.createElement('div');
-    li.className = 'sidebar-item' + (ch === CHANNEL ? ' active' : '');
-    li.innerHTML = `<span style="color:var(--muted)">#</span> ${ch}`;
-    li.onclick = () => selectChannel(ch);
-    ul.appendChild(li);
-  }
+  renderChatList();
 }
 
-async function selectChannel(name) {
-  CHANNEL = name;
-  lastMsgCount = 0;
-  document.getElementById('lbl-channel').textContent = '# ' + name;
-  const members = CHANNELS[name] || [];
-  document.getElementById('lbl-members').textContent = members.join(', ');
+function selectPeer(peer) {
+  CURRENT_MODE = 'direct';
+  CURRENT_PEER = peer;
+  CURRENT_CHANNEL = null;
+  document.getElementById('lbl-peer').textContent = '@ ' + peer;
+  updatePeerState(peer);
+  renderChatList();
   renderChannelList();
-  await loadMessages();
+  renderMessages(peer);
 }
 
-// ─────────────────────────────────────────────
-//  MESSAGES
-// ─────────────────────────────────────────────
-async function loadMessages() {
-  if (!CHANNEL) return;
-  const { ok, data } = await api('POST', '/messages', { channel: CHANNEL });
-  if (!ok) return;
-  const msgs = data.messages || [];
-  if (msgs.length !== lastMsgCount) {
-    lastMsgCount = msgs.length;
-    renderMessages(msgs);
+function selectChannel(channel) {
+  CURRENT_MODE = 'channel';
+  CURRENT_CHANNEL = channel;
+  CURRENT_PEER = null;
+  ensureChannel(channel);
+  document.getElementById('lbl-peer').textContent = '# ' + channel;
+  document.getElementById('lbl-peer-state').textContent = 'channel chat via tracker';
+  renderChatList();
+  renderChannelList();
+  renderChannelMessages(channel);
+  pollChannelMessages(channel);
+}
+
+function updatePeerState(peer) {
+  const el = document.getElementById('lbl-peer-state');
+  if (!peer) {
+    el.textContent = 'select a peer or channel';
+    return;
   }
+  const dc = dataChannels[peer];
+  if (!dc) el.textContent = 'not connected';
+  else el.textContent = dc.readyState;
 }
 
-function renderMessages(msgs) {
+function renderMessages(peer) {
   const box = document.getElementById('messages-ui');
   box.innerHTML = '';
 
+  const msgs = conversations[peer] || [];
   if (!msgs.length) {
-    box.innerHTML = '<div class="system-msg">no messages yet</div>';
+    box.innerHTML = '<div class="system-msg">no direct messages yet</div>';
     return;
   }
 
   for (const m of msgs) {
     const div = document.createElement('div');
-    div.className = 'msg ' + (m.from === ME ? 'mine' : 'theirs');
-    const t = new Date(m.ts * 1000).toLocaleTimeString();
+    div.className = 'msg ' + (m.mine ? 'mine' : 'theirs');
+    const t = new Date(m.ts).toLocaleTimeString();
     div.innerHTML = `
-      <div class="msg-meta">${m.from} · ${t}</div>
+      <div class="msg-meta">${escHtml(m.from)} · ${t}</div>
       <div class="msg-bubble">${escHtml(m.text)}</div>
     `;
     box.appendChild(div);
@@ -532,52 +540,372 @@ function renderMessages(msgs) {
   box.scrollTop = box.scrollHeight;
 }
 
+function renderChannelMessages(channel) {
+  const box = document.getElementById('messages-ui');
+  box.innerHTML = '';
+
+  const msgs = channelConversations[channel] || [];
+  if (!msgs.length) {
+    box.innerHTML = '<div class="system-msg">no channel messages yet</div>';
+    return;
+  }
+
+  for (const m of msgs) {
+    const div = document.createElement('div');
+    div.className = 'msg ' + (m.mine ? 'mine' : 'theirs');
+    const t = new Date(m.ts).toLocaleTimeString();
+    div.innerHTML = `
+      <div class="msg-meta">${escHtml(m.from)} · ${t}</div>
+      <div class="msg-bubble">${escHtml(m.text)}</div>
+    `;
+    box.appendChild(div);
+  }
+  box.scrollTop = box.scrollHeight;
+}
+
+async function doLogin() {
+  const user = document.getElementById('inp-user').value.trim();
+  const pass = document.getElementById('inp-pass').value;
+  const errEl = document.getElementById('login-err');
+  errEl.textContent = '';
+
+  if (!user || !pass) {
+    errEl.textContent = 'fill all fields';
+    return;
+  }
+
+  try {
+    const { ok, data } = await api('POST', '/p2p/login', { username: user, password: pass });
+    if (!ok) {
+      errEl.textContent = data.error || 'login failed';
+      return;
+    }
+
+    ME = data.username || user;
+    document.getElementById('lbl-user').textContent = ME;
+    document.getElementById('status-server').textContent = 'gateway=' + SERVER + ' | tracker=' + (data.tracker || '');
+
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+
+    setStatus('connected to gateway + tracker');
+    await refreshPeers();
+    await refreshChannels();
+    startPolling();
+  } catch (e) {
+    console.error(e);
+    errEl.textContent = 'cannot reach peer gateway';
+  }
+}
+
+async function doLogout() {
+  clearInterval(POLL_TIMER);
+
+  for (const peer of Object.keys(dataChannels)) {
+    try { dataChannels[peer].close(); } catch (_) {}
+  }
+  for (const peer of Object.keys(peerConnections)) {
+    try { peerConnections[peer].close(); } catch (_) {}
+  }
+
+  await api('POST', '/p2p/logout', {});
+
+  for (const k of Object.keys(peerConnections)) delete peerConnections[k];
+  for (const k of Object.keys(dataChannels)) delete dataChannels[k];
+  for (const k of Object.keys(conversations)) delete conversations[k];
+  for (const k of Object.keys(channelConversations)) delete channelConversations[k];
+  for (const k of Object.keys(channelKnownKeys)) delete channelKnownKeys[k];
+  CHANNELS = {};
+
+  CURRENT_PEER = null;
+  CURRENT_CHANNEL = null;
+  CURRENT_MODE = 'direct';
+  ME = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('messages-ui').innerHTML = '<div class="system-msg">select a peer or join a channel to start chatting</div>';
+  document.getElementById('inp-pass').value = '';
+}
+
+async function refreshPeers() {
+  const { ok, data } = await api('GET', '/p2p/peers');
+  const ul = document.getElementById('peer-list-ui');
+  ul.innerHTML = '';
+
+  if (!ok) {
+    ul.innerHTML = `<div style="padding:10px 14px;font-size:.75rem;color:var(--danger)">${escHtml(data.error || 'cannot load peers')}</div>`;
+    return;
+  }
+
+  const peers = data.peers || {};
+  const names = Object.keys(peers).sort();
+
+  if (!names.length) {
+    ul.innerHTML = '<div style="padding:10px 14px;font-size:.75rem;color:var(--muted)">no peers online</div>';
+    return;
+  }
+
+  for (const u of names) {
+    const dc = dataChannels[u];
+    const state = dc ? dc.readyState : 'online';
+
+    const li = document.createElement('div');
+    li.className = 'peer-item';
+    li.innerHTML = `
+      <div class="peer-main">
+        <span class="dot online"></span>
+        <span>${escHtml(u)}</span>
+      </div>
+      <span class="peer-state">${escHtml(state)}</span>
+    `;
+
+    li.onclick = async () => {
+      ensureConversation(u);
+      selectPeer(u);
+      if (!dataChannels[u] || ['closing', 'closed'].includes(dataChannels[u].readyState)) {
+        await startConnection(u);
+      }
+    };
+
+    ul.appendChild(li);
+  }
+}
+
+async function refreshChannels() {
+  const { ok, data } = await api('GET', '/p2p/channels');
+  if (!ok) {
+    renderChannelList();
+    return;
+  }
+
+  CHANNELS = data.channels || {};
+  for (const ch of Object.keys(CHANNELS)) ensureChannel(ch);
+  renderChannelList();
+}
+
+async function createChannelPrompt() {
+  const name = prompt('Enter channel name:');
+  if (name === null) return;
+  const channel = name.trim().replace(/^#/, '');
+  if (!channel) return;
+  await joinChannelByName(channel, true);
+}
+
+async function joinChannel() {
+  const inp = document.getElementById('inp-channel');
+  if (!inp) return;
+  const channel = inp.value.trim().replace(/^#/, '');
+  if (!channel) return;
+  await joinChannelByName(channel, true);
+  inp.value = '';
+}
+
+async function joinChannelByName(channel, autoSelect = true) {
+  channel = String(channel || '').trim().replace(/^#/, '');
+  if (!channel) return;
+
+  const { ok, data } = await api('POST', '/p2p/channel/join', { channel });
+  if (!ok) {
+    setStatus(data.error || 'cannot join channel', false);
+    return;
+  }
+
+  CHANNELS[channel] = data.members || CHANNELS[channel] || [ME];
+  ensureChannel(channel);
+  setStatus('joined #' + channel);
+  await refreshChannels();
+  if (autoSelect) selectChannel(channel);
+}
+
+async function pollChannelMessages(channel) {
+  if (!channel) return;
+  const { ok, data } = await api('POST', '/p2p/channel/messages', { channel });
+  if (!ok) return;
+
+  const msgs = data.messages || [];
+  for (const m of msgs) {
+    addChannelMessage(channel, m.from, m.text, m.ts);
+  }
+}
+
+function setupDataChannel(peer, dc) {
+  dataChannels[peer] = dc;
+
+  dc.onopen = () => {
+    setStatus('p2p connected with ' + peer);
+    updatePeerState(peer);
+    refreshPeers();
+  };
+
+  dc.onmessage = (event) => {
+    addMessage(peer, peer, String(event.data), false);
+  };
+
+  dc.onclose = () => {
+    setStatus('connection closed with ' + peer, false);
+    updatePeerState(peer);
+    refreshPeers();
+  };
+
+  dc.onerror = (e) => {
+    console.error('datachannel error', e);
+    setStatus('datachannel error with ' + peer, false);
+  };
+}
+
+function createPeerConnection(peer) {
+  if (peerConnections[peer]) return peerConnections[peer];
+
+  const pc = new RTCPeerConnection(rtcConfig);
+  peerConnections[peer] = pc;
+
+  pc.onicecandidate = async (event) => {
+    if (!event.candidate) return;
+    await api('POST', '/p2p/signal/send', {
+      target: peer,
+      type: 'ice-candidate',
+      data: event.candidate
+    });
+  };
+
+  pc.ondatachannel = (event) => {
+    setupDataChannel(peer, event.channel);
+  };
+
+  pc.onconnectionstatechange = () => {
+    console.log('connectionState', peer, pc.connectionState);
+  };
+
+  return pc;
+}
+
+async function startConnection(peer) {
+  const pc = createPeerConnection(peer);
+
+  if (dataChannels[peer] && ['connecting', 'open'].includes(dataChannels[peer].readyState)) {
+    return;
+  }
+
+  const dc = pc.createDataChannel('chat');
+  setupDataChannel(peer, dc);
+
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+
+  const { ok, data } = await api('POST', '/p2p/signal/send', {
+    target: peer,
+    type: 'offer',
+    data: offer
+  });
+
+  if (!ok) {
+    setStatus(data.error || ('cannot call ' + peer), false);
+    return;
+  }
+
+  setStatus('calling ' + peer + ' ...');
+}
+
+async function handleSignal(sig) {
+  const from = sig.from;
+  const type = sig.type;
+  const payload = sig.data;
+
+  ensureConversation(from);
+  if (CURRENT_MODE === 'direct' && !CURRENT_PEER) selectPeer(from);
+
+  const pc = createPeerConnection(from);
+
+  if (type === 'offer') {
+    await pc.setRemoteDescription(new RTCSessionDescription(payload));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+
+    await api('POST', '/p2p/signal/send', {
+      target: from,
+      type: 'answer',
+      data: answer
+    });
+
+    setStatus('incoming connection from ' + from);
+    updatePeerState(from);
+    return;
+  }
+
+  if (type === 'answer') {
+    await pc.setRemoteDescription(new RTCSessionDescription(payload));
+    setStatus('handshake completed with ' + from);
+    updatePeerState(from);
+    return;
+  }
+
+  if (type === 'ice-candidate') {
+    try {
+      await pc.addIceCandidate(new RTCIceCandidate(payload));
+    } catch (e) {
+      console.error('ice error', e);
+    }
+  }
+}
+
+async function pollSignals() {
+  const { ok, data } = await api('GET', '/p2p/signal/poll');
+  if (!ok) return;
+  const signals = data.signals || [];
+  for (const sig of signals) {
+    await handleSignal(sig);
+  }
+}
+
 async function sendMsg() {
   const inp = document.getElementById('inp-msg');
   const text = inp.value.trim();
-  if (!text || !CHANNEL) return;
+
+  if (!text) return;
+
+  if (CURRENT_MODE === 'channel') {
+    if (!CURRENT_CHANNEL) return;
+
+    const { ok, data } = await api('POST', '/p2p/channel/send', {
+      channel: CURRENT_CHANNEL,
+      message: text
+    });
+
+    if (!ok) {
+      setStatus(data.error || 'cannot send channel message', false);
+      return;
+    }
+
+    inp.value = '';
+    if (data.entry) addChannelMessage(CURRENT_CHANNEL, data.entry.from, data.entry.text, data.entry.ts);
+    setStatus('sent to #' + CURRENT_CHANNEL);
+    return;
+  }
+
+  if (!CURRENT_PEER) return;
+
+  const dc = dataChannels[CURRENT_PEER];
+  if (!dc || dc.readyState !== 'open') {
+    setStatus('peer not connected yet', false);
+    return;
+  }
+
+  dc.send(text);
+  addMessage(CURRENT_PEER, ME, text, true);
   inp.value = '';
-  const { ok } = await api('POST', '/broadcast-peer', { channel: CHANNEL, message: text });
-  if (ok) { setStatus('message sent'); await loadMessages(); }
-  else      setStatus('send failed', false);
 }
 
-// ─────────────────────────────────────────────
-//  PEERS
-// ─────────────────────────────────────────────
-async function refreshPeers() {
-  const { ok, data } = await api('GET', '/get-list');
-  if (!ok) return;
-  const peers = data.peers || {};
-  const ul = document.getElementById('peer-list-ui');
-  ul.innerHTML = '';
-  for (const [u, info] of Object.entries(peers)) {
-    const li = document.createElement('div');
-    li.className = 'peer-item';
-    li.innerHTML = `<span class="dot online"></span><span>${u}</span>`;
-    li.title = `${info.ip}:${info.port}`;
-    ul.appendChild(li);
-  }
-  if (!Object.keys(peers).length) {
-    ul.innerHTML = '<div style="padding:10px 14px;font-size:.75rem;color:var(--muted)">no peers online</div>';
-  }
-}
-
-// ─────────────────────────────────────────────
-//  POLLING  (short-poll every 2s)
-// ─────────────────────────────────────────────
 function startPolling() {
-  pollTimer = setInterval(async () => {
-    await loadMessages();
+  clearInterval(POLL_TIMER);
+  POLL_TIMER = setInterval(async () => {
+    await pollSignals();
     await refreshPeers();
-  }, 2000);
-}
+    await refreshChannels();
 
-// ─────────────────────────────────────────────
-//  UTIL
-// ─────────────────────────────────────────────
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    if (CURRENT_MODE === 'channel' && CURRENT_CHANNEL) {
+      await pollChannelMessages(CURRENT_CHANNEL);
+    }
+  }, 1500);
 }
 </script>
 </body>

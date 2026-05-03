@@ -1,7 +1,7 @@
 
 import json
 import threading
-from daemon import AsynapRous
+from daemon.asynaprous import AsynapRous
 from apps.auth import validate_user, create_session, get_current_user
 
 app = AsynapRous()
@@ -11,6 +11,7 @@ _lock   = threading.Lock()
 PEERS   = {}   
 CHANNELS = {}  
 
+SIGNALS = {}
 
 #  Helper
 def _json_ok(data: dict, status: int = 200):
@@ -349,6 +350,49 @@ def get_messages(headers="guest", body=""):
         return _json_err("Bad request", 400)
 
 
+
+@app.route('/signal/send', methods=['POST'])
+def signal_send(headers="guest", body=""):
+    username = get_current_user(headers)
+    if not username:
+        return _json_err("Unauthorized", 401)
+
+    try:
+        data = json.loads(body)
+        target = data.get("target", "").strip()
+        sig_type = data.get("type", "").strip()
+        payload = data.get("data")
+
+        if not target or not sig_type:
+            return _json_err("target and type required", 400)
+
+        msg = {"from": username, "type": sig_type, "data": payload}
+
+        with _lock:
+            if target not in SIGNALS:
+                SIGNALS[target] = []
+            SIGNALS[target].append(msg)
+
+        return _json_ok({"message": "signal queued"})
+    except Exception as e:
+        print("[ChatApp] signal_send error:", e)
+        return _json_err("Bad request", 400)
+
+
+@app.route('/signal/poll', methods=['GET'])
+def signal_poll(headers="guest", body=""):
+    username = get_current_user(headers)
+    if not username:
+        return _json_err("Unauthorized", 401)
+
+    try:
+        with _lock:
+            items = SIGNALS.get(username, [])
+            SIGNALS[username] = []
+        return _json_ok({"signals": items})
+    except Exception as e:
+        print("[ChatApp] signal_poll error:", e)
+        return _json_err("Bad request", 400)
 
 #  Entry point
 
